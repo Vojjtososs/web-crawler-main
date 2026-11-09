@@ -1,0 +1,28 @@
+image: gradle:9.2.1-jdk17
+
+before_script:
+  - GRADLE_USER_HOME="$(pwd)/.gradle"
+  - export GRADLE_USER_HOME
+
+stages:
+  - build
+  - smoke_test
+
+build_application:
+  stage: build
+  script:
+    - gradle build -x test
+  artifacts:
+    paths:
+      - app/build/libs/app-all.jar
+  allow_failure: false
+
+basic_functionality_test:
+  stage: smoke_test
+  script:
+    - timeout 20s java -jar app/build/libs/app-all.jar "https://google.com" 0 > crawler_output.txt
+    - if [ ! -s crawler_output.txt ]; then echo "Test selhal - žádný výstup"; exit 1; fi
+    - echo "Crawler úspěšně odeslal request a vrátil data v časovém limitu."
+  dependencies:
+    - build_application
+  allow_failure: false
