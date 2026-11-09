@@ -16,7 +16,7 @@ public class App {
         }
 
         String startUrl = args[0];
-        int maxDepth = 2; // Výchozí hodnota dle zadání
+        int maxDepth = 2;
 
         if (args.length >= 2) {
             try {
@@ -27,33 +27,28 @@ public class App {
             }
         }
 
-        // Sdílené datové struktury pro multithreading (z požadavků zadání)
         Set<String> visitedURIs = ConcurrentHashMap.newKeySet();
         ConcurrentHashMap<String, AtomicInteger> wordCounts = new ConcurrentHashMap<>();
 
-        // Multithreading setup
         int cores = Runtime.getRuntime().availableProcessors();
         ExecutorService executor = Executors.newFixedThreadPool(cores);
         Phaser phaser = new Phaser(1); // Hlavní vlákno se registruje
 
         System.err.println("Zahajuji prohledavani: " + startUrl + " (hloubka: " + maxDepth + ")");
 
-        // Spuštění parsování počáteční stránky
         URIinfo startUriInfo = new URIinfo(startUrl, 0);
         phaser.register();
         executor.submit(new ParserCallback(startUriInfo, maxDepth, visitedURIs, wordCounts, executor, phaser));
 
-        // Hlavní vlákno čeká, než se všechny vygenerované "ParserCallback" úlohy dokončí
         phaser.arriveAndAwaitAdvance();
         executor.shutdown();
 
-        // Výpis 20 nejčastějších slov na standardní výstup
         printTopWords(wordCounts);
     }
 
     private static void printTopWords(ConcurrentHashMap<String, AtomicInteger> wordCounts) {
         wordCounts.entrySet().stream()
-                .sorted((e1, e2) -> Integer.compare(e2.getValue().get(), e1.getValue().get())) // Sestupné řazení
+                .sorted((e1, e2) -> Integer.compare(e2.getValue().get(), e1.getValue().get()))
                 .limit(20)
                 .forEach(entry -> System.out.println(entry.getKey() + ";" + entry.getValue().get()));
     }

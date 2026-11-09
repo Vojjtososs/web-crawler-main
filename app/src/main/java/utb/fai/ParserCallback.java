@@ -40,29 +40,24 @@ public class ParserCallback implements Runnable {
         try {
             String urlString = uriInfo.uri.toString();
             
-            // Kontrola, zda již URL nebylo navštíveno. Set.add() je vláknově bezpečné.
             if (!visitedURIs.add(urlString)) {
                 return; 
             }
 
-            // Připojení a získání obsahu pomocí JSoup (automaticky řeší kódování)
             Document doc = Jsoup.connect(urlString)
                     .ignoreContentType(true)
                     .userAgent("Mozilla/5.0")
                     .timeout(5000)
                     .get();
 
-            // Zpracování textu na stránce
             handleText(doc.body().text());
 
-            // Zpracování odkazů, pokud jsme nedosáhli maximální hloubky
             if (uriInfo.depth < maxDepth) {
                 Elements links = doc.select("a[href]");
                 for (Element link : links) {
-                    String nextUrl = link.attr("abs:href"); // absolutní URL
+                    String nextUrl = link.attr("abs:href");
                     
                     if (nextUrl.startsWith("http") && !visitedURIs.contains(nextUrl)) {
-                        // Registrujeme nový úkol ve Phaseru a pošleme ho do Executoru
                         phaser.register();
                         executor.submit(new ParserCallback(
                                 new URIinfo(nextUrl, uriInfo.depth + 1), 
@@ -74,21 +69,15 @@ public class ParserCallback implements Runnable {
         } catch (Exception e) {
             System.err.println("Chyba při zpracování " + uriInfo.uri + ": " + e.getMessage());
         } finally {
-            // Bez ohledu na to, zda úkol uspěl nebo spadl, musíme Phaseru říct, že jsme skončili
             phaser.arriveAndDeregister();
         }
     }
 
-    /**
-     * Vlastní implementace analýzy četnosti slov
-     */
     private void handleText(String text) {
-        // Převedeme na malá písmena, odstraníme znaky co nejsou písmena a rozdělíme na slova
-        String[] words = WORD_PATTERN.matcher(text).replaceAll(" ").toLowerCase().split("\\s+");
+        String[] words = text.replaceAll("[^\\p{L}]+", " ").toLowerCase().split("\\s+");
         
         for (String word : words) {
             if (!word.isEmpty()) {
-                // Vláknově bezpečné zvýšení počítadla daného slova
                 wordCounts.computeIfAbsent(word, k -> new AtomicInteger(0)).incrementAndGet();
             }
         }
